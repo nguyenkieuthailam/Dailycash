@@ -1,4 +1,5 @@
-// proxy.js (updated - CORS + BasicAuth handling)
+// proxy.js - CORS を先に、BasicAuth を後にするパターン
+
 const express = require('express');
 const multer = require('multer');
 const fetch = require('node-fetch');
@@ -9,10 +10,9 @@ const basicAuth = require('express-basic-auth');
 const upload = multer();
 const app = express();
 
-// 設定は環境変数で注入
-const APPS_SCRIPT_URL = process.env.APPS_SCRIPT_URL; // required
-const INJECT_TOKEN = process.env.INJECT_TOKEN || null; // optional (server-side token)
-const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '*'; // 本番は Netlify のドメインに限定すること
+const APPS_SCRIPT_URL = process.env.APPS_SCRIPT_URL;
+const INJECT_TOKEN = process.env.INJECT_TOKEN || null;
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '*';
 const BASIC_USER = process.env.BASIC_USER || 'admin';
 const BASIC_PASS = process.env.BASIC_PASS || 'password';
 
@@ -21,54 +21,53 @@ if (!APPS_SCRIPT_URL) {
   process.exit(1);
 }
 
-// Basic auth middleware
+// --- CORS を先に適用 ---
+// ここで Access-Control-Allow-Origin / Headers / Methods を設定
+const corsOptions = {
+  origin: (origin, callback) => {
+    // ALLOWED_ORIGIN は単一ドメイン文字列を想定（例: 'https://dailycash-form.netlify.app'）
+    if (ALLOWED_ORIGIN === '*' || !origin || origin === ALLOWED_ORIGIN) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET','POST','OPTIONS'],
+  allowedHeaders: ['Content-Type','Authorization','Accept']
+};
+app.use(cors(corsOptions));
+// 明示的な preflight handler（OPTIONS）を用意（認証は不要）
+app.options('*', cors(corsOptions));
+
+// --- Basic Auth は CORS の後に置く ---
+// ただしプリフライト（OPTIONS）はここで弾かれない（既に処理済み）
 app.use(basicAuth({
   users: { [BASIC_USER]: BASIC_PASS },
   challenge: true,
   realm: 'Protected'
 }));
 
-// CORS: 明示的に許可するヘッダーを追加
-app.use(cors({
-  origin: ALLOWED_ORIGIN === '*' ? true : ALLOWED_ORIGIN,
-  credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-  methods: ['GET','POST','OPTIONS']
-}));
-
-// Preflight handler to ensure Access-Control headers present
-app.options('*', cors({
-  origin: ALLOWED_ORIGIN === '*' ? true : ALLOWED_ORIGIN,
-  credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-  methods: ['GET','POST','OPTIONS']
-}));
-
+// --- Proxy POST handler ---
 app.post('/proxy', upload.none(), async (req, res) => {
   try {
     const body = req.body || {};
-
-    // Build form-data to forward to Apps Script
     const fd = new FormData();
 
-    // Inject server-side token if configured (preferred)
     if (INJECT_TOKEN) {
       fd.append('token', INJECT_TOKEN);
     } else if (body.token) {
       fd.append('token', body.token);
     }
 
-    // Forward all fields except token (if injected)
     Object.keys(body).forEach(k => {
       if (k === 'token' && INJECT_TOKEN) return;
       fd.append(k, body[k]);
     });
 
-    // Forward to Apps Script
     const r = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: fd });
     const text = await r.text();
 
-    // Propagate status and type
     res.status(r.status);
     const ct = r.headers.get('content-type');
     if (ct) res.set('Content-Type', ct);
