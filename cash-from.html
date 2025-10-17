@@ -556,7 +556,7 @@
 
         const data = await res.json();
         if (data && data.status === 'ok') {
-          alert('送信が完了しました。');
+          alert('送信が完了しました | Gửi dữ liệu thành công');
           document.getElementById('dailyCashForm').reset();
           document.querySelectorAll('#cashGrid tbody tr').forEach(row=>{
             const r0 = row.querySelector('input[type="radio"][value="0"]');
