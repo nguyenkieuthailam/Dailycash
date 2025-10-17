@@ -20,6 +20,11 @@
     button { background:#0b69d6; color:#fff; border:none; padding:10px 18px; border-radius:8px; cursor:pointer; font-size:0.95rem; }
     .note { color:#666; font-size:0.9rem; margin-top:8px; }
 
+    /* login box */
+    #loginBox { display:flex; gap:8px; align-items:center; margin-bottom:12px; }
+    #loginBox input { width:auto; display:inline-block; padding:6px 8px; font-size:0.9rem; }
+    #loginBox button { padding:6px 10px; font-size:0.9rem; }
+
     /* grid */
     .grid-wrapper { width:100%; overflow-x:auto; border:1px solid #e6eef8; border-radius:8px; background:#fff; margin-top:10px; }
     table.grid { border-collapse:collapse; table-layout:fixed; min-width:100%; }
@@ -40,6 +45,16 @@
   <div class="container">
     <h1>日次売上金集金フォーム</h1>
     <div class="subtitle">Daily cash / 集金入力フォーム</div>
+
+    <!-- LOGIN UI -->
+    <div id="loginBox" aria-live="polite">
+      <input id="authUser" placeholder="ユーザー名" />
+      <input id="authPass" placeholder="パスワード" type="password" />
+      <button id="authBtn">ログイン</button>
+      <button id="logoutBtn" style="display:none;background:#666;margin-left:4px;">ログアウト</button>
+      <div id="loginStatus" style="margin-left:12px;color:#666;font-size:0.95rem;"></div>
+    </div>
+
     <p class="note">グリッドは横スクロールします。左端の「金額」列は固定表示されます。</p>
 
     <form id="dailyCashForm" onsubmit="return false;">
@@ -124,18 +139,74 @@
       </div>
     </form>
 
-    <p class="note" style="margin-top:12px;">※FormDataで送信するように変更しました。Apps Script 側で e.parameter['count_10000'] 等を読み取る処理が必要です。</p>
+    <p class="note" style="margin-top:12px;">※FormDataで送信します。先にログインしてから送信してください。</p>
   </div>
 
   <script>
     /******************************
      *  設定（ここを置き換える）
      ******************************/
-    //const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxcRSrpFAXTOUO5Wa3KjDZcj6RYWmavmsVAtuewG1o8mFzdXY3mDR5k3gPJMKVXycOqbg/exec';
-    //const SECRET_TOKEN = 'Banhmipate2022-dailycash-autosumary';
-    
     const WEB_APP_URL = 'https://dailycash-rzzu.onrender.com/proxy';
-    const SECRET_TOKEN = '';
+    const SECRET_TOKEN = ''; // クライアント側でトークンを送らない運用なら空に
+
+    /******************************
+     * ログイン / 認証補助関数
+     ******************************/
+    const AUTH_KEY = 'proxyAuth'; // sessionStorage key
+
+    function setAuthFromInputs() {
+      const u = document.getElementById('authUser').value || '';
+      const p = document.getElementById('authPass').value || '';
+      if (!u || !p) {
+        alert('ユーザー名とパスワードを入力してください。');
+        return false;
+      }
+      const b = btoa(u + ':' + p);
+      sessionStorage.setItem(AUTH_KEY, b);
+      updateLoginStatus();
+      return true;
+    }
+
+    function clearAuth() {
+      sessionStorage.removeItem(AUTH_KEY);
+      updateLoginStatus();
+    }
+
+    function getAuth() {
+      return sessionStorage.getItem(AUTH_KEY) || null;
+    }
+
+    function updateLoginStatus() {
+      const statusEl = document.getElementById('loginStatus');
+      const logoutBtn = document.getElementById('logoutBtn');
+      const auth = getAuth();
+      if (auth) {
+        statusEl.textContent = '認証済み（送信時にプロキシへ認証情報を付与します）';
+        logoutBtn.style.display = 'inline-block';
+        document.getElementById('authUser').style.display = 'none';
+        document.getElementById('authPass').style.display = 'none';
+        document.getElementById('authBtn').style.display = 'none';
+      } else {
+        statusEl.textContent = '未ログイン：送信前にログインしてください';
+        logoutBtn.style.display = 'none';
+        document.getElementById('authUser').style.display = 'inline-block';
+        document.getElementById('authPass').style.display = 'inline-block';
+        document.getElementById('authBtn').style.display = 'inline-block';
+      }
+    }
+
+    document.getElementById('authBtn').addEventListener('click', () => {
+      if (setAuthFromInputs()) {
+        alert('ログイン情報を保存しました（セッション限定）。送信を行ってください。');
+      }
+    });
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      clearAuth();
+      alert('ログアウトしました。再度ログインしてください。');
+    });
+
+    // initialize status on load
+    updateLoginStatus();
 
     /******************************
      * グリッド生成（0..60 +「60以上」）
@@ -165,13 +236,11 @@
         const tr = document.createElement('tr');
         tr.dataset.denom = denom;
 
-        // 金額セル（左端、固定）
         const tdVal = document.createElement('td');
         tdVal.style.minWidth = valueCol + 'px';
         tdVal.textContent = '¥' + denom.toLocaleString();
         tr.appendChild(tdVal);
 
-        // 0..MAX_COL のラジオ列
         for (let i = 0; i <= MAX_COL; i++) {
           const td = document.createElement('td');
           td.className='count-cell'; td.style.minWidth = colWidth+'px';
@@ -184,7 +253,6 @@
           tr.appendChild(td);
         }
 
-        // 最後の列: MAX以上 + 個数入力
         const tdLast = document.createElement('td');
         tdLast.className='count-cell'; tdLast.style.minWidth = colWidth+'px';
         const rlast = document.createElement('input');
@@ -199,7 +267,6 @@
         tbody.appendChild(tr);
       });
 
-      // テーブル幅調整
       const table = document.getElementById('cashGrid');
       const totalCols = 1 + (MAX_COL + 1) + 1;
       const minW = valueCol + totalCols * colWidth;
@@ -285,9 +352,7 @@
       document.getElementById('totalDisplay').textContent = '総売上（自動）：¥' + overall.toLocaleString();
     }
 
-    // attach listeners to update on interactions
     (function attachUpdateListeners(){
-      // radios and inline inputs
       document.querySelectorAll('#cashGrid tbody tr').forEach(row=>{
         row.querySelectorAll('input[type="radio"]').forEach(radio=>{
           radio.addEventListener('change', (e)=>{
@@ -306,7 +371,6 @@
         if (el) el.addEventListener('input', updateDisplays);
       });
 
-      // init default: set 0 for each row
       document.querySelectorAll('#cashGrid tbody tr').forEach(row=>{
         const r0 = row.querySelector('input[type="radio"][value="0"]');
         if (r0) r0.checked = true;
@@ -315,7 +379,7 @@
     })();
 
     /******************************
-     * 収集ロジック（denom_counts, grid_total など）と送信
+     * 収集ロジックと送信（Authorization ヘッダを付与）
      ******************************/
     function collectDenomCounts() {
       const rows = Array.from(document.querySelectorAll('#cashGrid tbody tr'));
@@ -339,6 +403,9 @@
       const cashier = document.getElementById('cashier').value === 'other' ? document.getElementById('cashierOther').value : document.getElementById('cashier').value;
       if (!cashier) { alert('担当者を入力してください。'); return; }
 
+      const auth = getAuth();
+      if (!auth) { alert('送信にはログインが必要です。上部でユーザー名とパスワードを入力してください。'); return; }
+
       const {denom_counts, grid_total} = collectDenomCounts();
       const change = Number(document.getElementById('change').value || 0);
       const other = Number(document.getElementById('otherAmount').value || 0);
@@ -348,9 +415,9 @@
       const breakdown = document.getElementById('breakdown').value || '';
       const notes = document.getElementById('notes').value || '';
 
-      // --- changed part: send FormData (no JSON) to avoid CORS preflight ---
       const fd = new FormData();
-      fd.append('token', SECRET_TOKEN);
+      // only append token if non-empty (we prefer server INJECT_TOKEN)
+      if (SECRET_TOKEN) fd.append('token', SECRET_TOKEN);
       fd.append('date', date);
       fd.append('location', location);
       fd.append('cashier', cashier);
@@ -362,10 +429,7 @@
       fd.append('demaekan', String(demaekan));
       fd.append('breakdown', breakdown);
       fd.append('notes', notes);
-      // append each denom as individual fields: count_10000, count_5000, ...
-      Object.keys(denom_counts).forEach(k => {
-        fd.append('count_' + k, String(denom_counts[k]));
-      });
+      Object.keys(denom_counts).forEach(k => { fd.append('count_' + k, String(denom_counts[k])); });
 
       const submitBtn = document.getElementById('submitBtn');
       submitBtn.disabled = true;
@@ -375,12 +439,22 @@
         const res = await fetch(WEB_APP_URL, {
           method: 'POST',
           mode: 'cors',
-          body: fd // DO NOT set Content-Type header manually
+          headers: {
+            'Authorization': 'Basic ' + auth
+          },
+          body: fd
         });
+
+        if (res.status === 401) {
+          // authentication failed at proxy - clear stored auth
+          clearAuth();
+          alert('認証に失敗しました。ログイン情報を確認してください。');
+          return;
+        }
+
         const data = await res.json();
         if (data && data.status === 'ok') {
           alert('送信が完了しました。');
-          // reset and reinit UI
           document.getElementById('dailyCashForm').reset();
           document.querySelectorAll('#cashGrid tbody tr').forEach(row=>{
             const r0 = row.querySelector('input[type="radio"][value="0"]');
