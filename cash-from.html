@@ -39,72 +39,6 @@
       :root{--valueCol:100px; --colWidth:52px}
       .container { padding:12px; }
     }
-
-    /* Login block — vertical layout, same style as other form fields */
-    #loginBox {
-      display: block;
-      margin-bottom: 12px;
-      padding: 8px 0;
-    }
-    #loginBox .field {
-      margin-top: 8px;
-    }
-    #loginBox .field label {
-      display:block;
-      margin-bottom:6px;
-      font-weight:700;
-      font-size:0.95rem;
-    }
-    #loginBox .field input {
-      /* reuse existing global input style (width:100% etc) */
-      width:100%;
-      padding:8px 10px;
-      border-radius:6px;
-      border:1px solid #d1d5db;
-      box-sizing:border-box;
-      font-size:0.95rem;
-    }
-    #loginBox .pw-row {
-      display:flex;
-      gap:8px;
-      align-items:center;
-    }
-    #loginBox .pw-row input[type="password"],
-    #loginBox .pw-row input[type="text"] {
-      flex:1;
-    }
-    #loginBox .pw-toggle {
-      background:transparent;
-      border:1px solid #d1d5db;
-      border-radius:6px;
-      padding:8px 10px;
-      cursor:pointer;
-      font-size:0.95rem;
-    }
-    #loginBox .actions {
-      display:flex;
-      gap:8px;
-      margin-top:10px;
-      justify-content:flex-end;
-    }
-    #loginBox .btn {
-      padding:8px 12px;
-      border-radius:6px;
-      border:none;
-      background:#0b69d6;
-      color:#fff;
-      cursor:pointer;
-    }
-    #loginBox .btn.secondary {
-      background:#eef5ff;
-      color:#0b69d6;
-      border:1px solid #dbeeff;
-    }
-    #loginStatus {
-      margin-top:8px;
-      color:#666;
-      font-size:0.95rem;
-    }
   </style>
 </head>
 <body>
@@ -112,36 +46,13 @@
     <h1>日次売上金集金フォーム</h1>
     <div class="subtitle">Daily cash / 集金入力フォーム</div>
 
-    <!-- LOGIN UI 
+    <!-- LOGIN UI -->
     <div id="loginBox" aria-live="polite">
       <input id="authUser" placeholder="ユーザー名" />
       <input id="authPass" placeholder="パスワード" type="password" />
       <button id="authBtn">ログイン</button>
       <button id="logoutBtn" style="display:none;background:#666;margin-left:4px;">ログアウト</button>
       <div id="loginStatus" style="margin-left:12px;color:#666;font-size:0.95rem;"></div>
-    </div>　-->
-
-    <!-- LOGIN UI (vertical, same style as other fields) -->
-    <div id="loginBox" aria-live="polite">
-      <div class="field">
-        <label for="authUser">ユーザー名</label>
-        <input id="authUser" type="text" placeholder="ユーザー名" autocomplete="username" />
-      </div>
-
-      <div class="field">
-        <label for="authPass">パスワード</label>
-        <div class="pw-row">
-          <input id="authPass" type="password" placeholder="パスワード" autocomplete="current-password" />
-          <button type="button" id="pwToggle" class="pw-toggle" aria-pressed="false" title="パスワード表示切替">👁</button>
-        </div>
-      </div>
-
-      <div class="actions">
-        <button id="authBtn" class="btn" type="button">ログイン</button>
-        <button id="logoutBtn" class="btn secondary" type="button" style="display:none">ログアウト</button>
-      </div>
-
-      <div id="loginStatus">未ログイン：送信前にログインしてください</div>
     </div>
 
     <p class="note">グリッドは横スクロールします。左端の「金額」列は固定表示されます。</p>
@@ -283,23 +194,6 @@
         document.getElementById('authBtn').style.display = 'inline-block';
       }
     }
-
-    // password toggle — 既存のログインロジックと併用できます
-    document.addEventListener('DOMContentLoaded', () => {
-      const pwToggle = document.getElementById('pwToggle');
-      const passInput = document.getElementById('authPass');
-      if (pwToggle && passInput) {
-        pwToggle.addEventListener('click', () => {
-          const isPwd = passInput.getAttribute('type') === 'password';
-          passInput.setAttribute('type', isPwd ? 'text' : 'password');
-          pwToggle.setAttribute('aria-pressed', String(isPwd));
-          pwToggle.textContent = isPwd ? '🙈' : '👁';
-        });
-      }
-
-      // 既存の updateLoginStatus() を呼んで初期状態反映（もし定義済みなら）
-      if (typeof updateLoginStatus === 'function') updateLoginStatus();
-    });
 
     document.getElementById('authBtn').addEventListener('click', () => {
       if (setAuthFromInputs()) {
