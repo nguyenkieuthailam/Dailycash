@@ -1,0 +1,46 @@
+# node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+.pnp
+.pnp.js
+
+# dotenv
+.env
+.env.local
+.env.*.local
+
+# logs
+logs
+*.log
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# build / coverage
+dist/
+build/
+coverage/
+.nyc_output/
+
+# temporary
+tmp/
+temp/
+.cache/
+
+# other common
+*.swp
+*.swo
+
+# lockfiles created by pnpm / bun (if used)
+.pnpm-store/
+bun.lockb
