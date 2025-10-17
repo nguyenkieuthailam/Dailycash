@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>日次売上金集金フォーム（Apps Script送信）</title>
+  <style>
+    :root{--colWidth:64px; --valueCol:120px}
+    body { font-family: Arial, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif; background:#f7f9fc; padding:18px; color:#111; }
+    .container { max-width:1200px; margin:0 auto; background:#fff; padding:20px; border-radius:10px; box-shadow:0 6px 18px rgba(15,23,42,0.06); }
+    h1 { margin:0 0 6px; font-size:1.18rem; }
+    .subtitle { color:#546e7a; margin-bottom:12px; }
+    label { display:block; margin:12px 0 6px; font-weight:700; }
+    input[type="text"], input[type="number"], input[type="date"], select, textarea {
+      width:100%; padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; box-sizing:border-box; font-size:0.95rem;
+    }
+    .row { display:flex; gap:12px; flex-wrap:wrap; }
+    .col { flex:1; min-width:180px; }
+    .actions { margin-top:18px; text-align:right; }
+    button { background:#0b69d6; color:#fff; border:none; padding:10px 18px; border-radius:8px; cursor:pointer; font-size:0.95rem; }
+    .note { color:#666; font-size:0.9rem; margin-top:8px; }
+
+    /* grid */
+    .grid-wrapper { width:100%; overflow-x:auto; border:1px solid #e6eef8; border-radius:8px; background:#fff; margin-top:10px; }
+    table.grid { border-collapse:collapse; table-layout:fixed; min-width:100%; }
+    .grid th, .grid td { border-right:1px solid #eef6ff; border-bottom:1px solid #eef6ff; padding:8px 6px; text-align:center; font-size:0.9rem; white-space:nowrap; }
+    .grid th { background:#f0f6ff; color:#0b69d6; font-weight:700; position:sticky; top:0; z-index:5; }
+    .grid th:first-child, .grid td:first-child { position:sticky; left:0; z-index:7; background:#fff; text-align:left; padding-left:12px; min-width:var(--valueCol); }
+    .count-cell { width:var(--colWidth); max-width:var(--colWidth); padding:6px; }
+    .inline-input { width:72px; padding:6px; border-radius:6px; border:1px solid #cbd6e6; font-size:0.9rem; }
+    .total-box { margin-top:12px; font-weight:700; color:#0b69d6; }
+    .help { color:#555; font-size:0.92rem; margin-top:6px; }
+    @media (max-width:700px){
+      :root{--valueCol:100px; --colWidth:52px}
+      .container { padding:12px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>日次売上金集金フォーム</h1>
+    <div class="subtitle">Daily cash / 集金入力フォーム</div>
+    <p class="note">グリッドは横スクロールします。左端の「金額」列は固定表示されます。</p>
+
+    <form id="dailyCashForm" onsubmit="return false;">
+      <label for="date">日付 (Date)</label>
+      <input type="date" id="date" name="date" required />
+
+      <label for="location">店舗 / 拠点 (Location)</label>
+      <select id="location" name="location" required>
+        <option value="">-- 選択してください --</option>
+        <option value="chigasaki">茅ヶ崎店</option>
+        <option value="yokohama">横浜店</option>
+        <option value="tokyo">東京本店</option>
+        <option value="osaka">大阪支店</option>
+        <option value="other">その他（記入）</option>
+      </select>
+      <input type="text" id="locationOther" placeholder="店舗名を入力" style="margin-top:8px; display:none;" />
+
+      <div class="row" style="margin-top:8px;">
+        <div class="col">
+          <label for="cashier">担当者名 (Cashier)</label>
+          <select id="cashier" name="cashier" required>
+            <option value="">-- 選択してください --</option>
+            <option value="sato">佐藤</option>
+            <option value="suzuki">鈴木</option>
+            <option value="tanaka">田中</option>
+            <option value="yamada">山田</option>
+            <option value="other">その他（記入）</option>
+          </select>
+          <input type="text" id="cashierOther" placeholder="担当者名を入力" style="margin-top:8px; display:none;" />
+        </div>
+      </div>
+
+      <label style="margin-top:12px;">集金額（現金） (Cash collected) — グリッド入力</label>
+      <div class="help">列で個数（0〜60・60以上）を選択してください。合計（現金合計）は自動計算されます。</div>
+
+      <div class="grid-wrapper" id="gridWrapper">
+        <table class="grid" id="cashGrid">
+          <thead id="gridHead"><tr><th style="min-width:var(--valueCol);">金額</th></tr></thead>
+          <tbody id="gridBody"></tbody>
+        </table>
+      </div>
+
+      <div style="margin-top:12px; display:flex; gap:12px; flex-wrap:wrap;">
+        <div style="flex:1; min-width:160px;">
+          <label for="paypay">Paypay売上</label>
+          <input type="number" id="paypay" name="paypay" min="0" step="1" inputmode="numeric" pattern="\d*" value="0" />
+        </div>
+        <div style="flex:1; min-width:160px;">
+          <label for="uber">Uber売上</label>
+          <input type="number" id="uber" name="uber" min="0" step="1" inputmode="numeric" pattern="\d*" value="0" />
+        </div>
+        <div style="flex:1; min-width:160px;">
+          <label for="demaekan">Demaekan売上</label>
+          <input type="number" id="demaekan" name="demaekan" min="0" step="1" inputmode="numeric" pattern="\d*" value="0" />
+        </div>
+      </div>
+
+      <div style="margin-top:10px;">
+        <label for="change">釣り銭（デフォルト -38,500）</label>
+        <input type="number" id="change" name="change" value="-38500" step="1" class="inline-input" />
+      </div>
+
+      <div style="margin-top:10px;">
+        <label>その他（金額があれば加算）</label>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input type="number" id="otherAmount" name="otherAmount" min="0" step="1" class="inline-input" placeholder="例: 250" />
+          <div class="help">（小計に上乗せされます）</div>
+        </div>
+      </div>
+
+      <div class="total-box" id="subtotalDisplay">集金+Paypay 合計：¥0</div>
+      <div class="total-box" id="totalDisplay" style="margin-top:6px;">総売上（自動）：¥0</div>
+
+      <label for="breakdown" style="margin-top:12px;">売上内訳（任意）(Sales breakdown)</label>
+      <textarea id="breakdown" name="breakdown" rows="4" placeholder="商品A: 5000、商品B: 7000 など"></textarea>
+
+      <label for="notes" style="margin-top:10px;">備考 / Notes</label>
+      <textarea id="notes" name="notes" rows="3" placeholder="不備や特記事項があれば記載"></textarea>
+
+      <div class="actions">
+        <button id="submitBtn" type="button">送信 / Submit</button>
+      </div>
+    </form>
+
+    <p class="note" style="margin-top:12px;">※FormDataで送信するように変更しました。Apps Script 側で e.parameter['count_10000'] 等を読み取る処理が必要です。</p>
+  </div>
+
+  <script>
+    /******************************
+     *  設定（ここを置き換える）
+     ******************************/
+    //const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxcRSrpFAXTOUO5Wa3KjDZcj6RYWmavmsVAtuewG1o8mFzdXY3mDR5k3gPJMKVXycOqbg/exec';
+    //const SECRET_TOKEN = 'Banhmipate2022-dailycash-autosumary';
+    
+    const WEB_APP_URL = 'https://dailycash-rzzu.onrender.com/proxy';
+    const SECRET_TOKEN = '';
+
+    /******************************
+     * グリッド生成（0..60 +「60以上」）
+     ******************************/
+    const DENOMS = [10000,5000,1000,500,100,50,10];
+    const MAX_COL = 60;
+    const colWidth = 64;
+    const valueCol = 120;
+
+    (function buildGrid(){
+      const headRow = document.querySelector('#gridHead tr');
+      for (let i=0;i<=MAX_COL;i++){
+        const th = document.createElement('th');
+        th.className='count-cell';
+        th.style.minWidth = colWidth+'px';
+        th.textContent = i;
+        headRow.appendChild(th);
+      }
+      const thLast = document.createElement('th');
+      thLast.className='count-cell';
+      thLast.style.minWidth = colWidth+'px';
+      thLast.textContent = MAX_COL + '以上';
+      headRow.appendChild(thLast);
+
+      const tbody = document.getElementById('gridBody');
+      DENOMS.forEach(denom=>{
+        const tr = document.createElement('tr');
+        tr.dataset.denom = denom;
+
+        // 金額セル（左端、固定）
+        const tdVal = document.createElement('td');
+        tdVal.style.minWidth = valueCol + 'px';
+        tdVal.textContent = '¥' + denom.toLocaleString();
+        tr.appendChild(tdVal);
+
+        // 0..MAX_COL のラジオ列
+        for (let i = 0; i <= MAX_COL; i++) {
+          const td = document.createElement('td');
+          td.className='count-cell'; td.style.minWidth = colWidth+'px';
+          const input = document.createElement('input');
+          input.type = 'radio';
+          input.name = 'count_' + denom;
+          input.className = 'count-radio';
+          input.value = String(i);
+          td.appendChild(input);
+          tr.appendChild(td);
+        }
+
+        // 最後の列: MAX以上 + 個数入力
+        const tdLast = document.createElement('td');
+        tdLast.className='count-cell'; tdLast.style.minWidth = colWidth+'px';
+        const rlast = document.createElement('input');
+        rlast.type = 'radio'; rlast.name = 'count_' + denom; rlast.className = 'count-radio'; rlast.value = MAX_COL + 'plus';
+        tdLast.appendChild(rlast);
+        const inline = document.createElement('input');
+        inline.type = 'number'; inline.min = MAX_COL; inline.step = 1; inline.className = 'inline-input hidden-count';
+        inline.dataset.target = denom; inline.placeholder = '個数'; inline.style.display = 'none'; inline.style.marginLeft = '6px';
+        tdLast.appendChild(inline);
+        tr.appendChild(tdLast);
+
+        tbody.appendChild(tr);
+      });
+
+      // テーブル幅調整
+      const table = document.getElementById('cashGrid');
+      const totalCols = 1 + (MAX_COL + 1) + 1;
+      const minW = valueCol + totalCols * colWidth;
+      table.style.minWidth = Math.max(minW, 800) + 'px';
+    })();
+
+    /******************************
+     * ユーザー入力制御（location/cashier その他など）
+     ******************************/
+    (function uiToggles(){
+      const locationSelect = document.getElementById('location');
+      const locationOther = document.getElementById('locationOther');
+      locationSelect.addEventListener('change', () => {
+        if (locationSelect.value === 'other') { locationOther.style.display = 'block'; locationOther.required = true; }
+        else { locationOther.style.display = 'none'; locationOther.required = false; }
+      });
+      const cashierSelect = document.getElementById('cashier');
+      const cashierOther = document.getElementById('cashierOther');
+      cashierSelect.addEventListener('change', () => {
+        if (cashierSelect.value === 'other') { cashierOther.style.display = 'block'; cashierOther.required = true; }
+        else { cashierOther.style.display = 'none'; cashierOther.required = false; }
+      });
+    })();
+
+    /******************************
+     * 入力制約（Paypay/Uber/Demaekan を数値のみに）
+     ******************************/
+    function enforceIntegerInput(el) {
+      el.addEventListener('input', () => {
+        let v = el.value;
+        v = v.replace(/[^\d]/g,'');
+        el.value = v;
+      });
+      el.addEventListener('blur', () => { if (el.value==='') el.value='0'; });
+    }
+    ['paypay','uber','demaekan'].forEach(id=>{
+      const el = document.getElementById(id);
+      if (el) enforceIntegerInput(el);
+    });
+
+    /******************************
+     * 計算ロジック（集計・表示）
+     ******************************/
+    function parseCountFromRow(row) {
+      const radios = Array.from(row.querySelectorAll('input[type="radio"]'));
+      const selected = radios.find(r => r.checked);
+      if (!selected) return 0;
+      if ((selected.value||'').endsWith('plus')) {
+        const inline = row.querySelector('.hidden-count');
+        const v = inline && inline.value ? parseInt(inline.value,10) : NaN;
+        return isNaN(v) ? 0 : v;
+      }
+      const n = parseInt(selected.value || '0',10);
+      return isNaN(n) ? 0 : n;
+    }
+
+    function computeGridTotalAndCounts() {
+      const rows = Array.from(document.querySelectorAll('#cashGrid tbody tr'));
+      let gridTotal = 0;
+      const denom_counts = {};
+      rows.forEach(row => {
+        const denom = Number(row.dataset.denom || 0);
+        const cnt = parseCountFromRow(row);
+        denom_counts[String(denom)] = cnt;
+        gridTotal += denom * (isNaN(cnt) ? 0 : cnt);
+      });
+      return {gridTotal, denom_counts};
+    }
+
+    function updateDisplays() {
+      const {gridTotal} = computeGridTotalAndCounts();
+      const other = parseInt(document.getElementById('otherAmount').value || '0',10) || 0;
+      const change = parseInt(document.getElementById('change').value || '0',10) || 0;
+      const paypay = parseInt(document.getElementById('paypay').value || '0',10) || 0;
+      const uber = parseInt(document.getElementById('uber').value || '0',10) || 0;
+      const demaekan = parseInt(document.getElementById('demaekan').value || '0',10) || 0;
+
+      const cashTotal = gridTotal + change + other;
+      const subtotal = cashTotal + paypay;
+      const overall = subtotal + uber + demaekan;
+
+      document.getElementById('subtotalDisplay').textContent = '集金+Paypay 合計：¥' + subtotal.toLocaleString();
+      document.getElementById('totalDisplay').textContent = '総売上（自動）：¥' + overall.toLocaleString();
+    }
+
+    // attach listeners to update on interactions
+    (function attachUpdateListeners(){
+      // radios and inline inputs
+      document.querySelectorAll('#cashGrid tbody tr').forEach(row=>{
+        row.querySelectorAll('input[type="radio"]').forEach(radio=>{
+          radio.addEventListener('change', (e)=>{
+            const inline = row.querySelector('.hidden-count');
+            if (inline) inline.style.display = (radio.value.endsWith('plus')) ? 'inline-block' : 'none';
+            if (!radio.value.endsWith('plus') && inline) inline.value = '';
+            updateDisplays();
+          });
+        });
+        const inline = row.querySelector('.hidden-count');
+        if (inline) inline.addEventListener('input', updateDisplays);
+      });
+
+      ['paypay','uber','demaekan','otherAmount','change'].forEach(id=>{
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', updateDisplays);
+      });
+
+      // init default: set 0 for each row
+      document.querySelectorAll('#cashGrid tbody tr').forEach(row=>{
+        const r0 = row.querySelector('input[type="radio"][value="0"]');
+        if (r0) r0.checked = true;
+      });
+      updateDisplays();
+    })();
+
+    /******************************
+     * 収集ロジック（denom_counts, grid_total など）と送信
+     ******************************/
+    function collectDenomCounts() {
+      const rows = Array.from(document.querySelectorAll('#cashGrid tbody tr'));
+      const denom_counts = {};
+      let grid_total = 0;
+      rows.forEach(row => {
+        const denom = Number(row.dataset.denom || 0);
+        const cnt = parseCountFromRow(row);
+        denom_counts[String(denom)] = cnt;
+        grid_total += denom * (isNaN(cnt) ? 0 : cnt);
+      });
+      return {denom_counts, grid_total};
+    }
+
+    async function submitToAppsScript() {
+      // basic validation
+      const date = document.getElementById('date').value;
+      if (!date) { alert('日付を入力してください。'); return; }
+      const location = document.getElementById('location').value === 'other' ? document.getElementById('locationOther').value : document.getElementById('location').value;
+      if (!location) { alert('店舗を入力してください。'); return; }
+      const cashier = document.getElementById('cashier').value === 'other' ? document.getElementById('cashierOther').value : document.getElementById('cashier').value;
+      if (!cashier) { alert('担当者を入力してください。'); return; }
+
+      const {denom_counts, grid_total} = collectDenomCounts();
+      const change = Number(document.getElementById('change').value || 0);
+      const other = Number(document.getElementById('otherAmount').value || 0);
+      const paypay = Number(document.getElementById('paypay').value || 0);
+      const uber = Number(document.getElementById('uber').value || 0);
+      const demaekan = Number(document.getElementById('demaekan').value || 0);
+      const breakdown = document.getElementById('breakdown').value || '';
+      const notes = document.getElementById('notes').value || '';
+
+      // --- changed part: send FormData (no JSON) to avoid CORS preflight ---
+      const fd = new FormData();
+      fd.append('token', SECRET_TOKEN);
+      fd.append('date', date);
+      fd.append('location', location);
+      fd.append('cashier', cashier);
+      fd.append('grid_total', String(grid_total));
+      fd.append('change', String(change));
+      fd.append('other', String(other));
+      fd.append('paypay', String(paypay));
+      fd.append('uber', String(uber));
+      fd.append('demaekan', String(demaekan));
+      fd.append('breakdown', breakdown);
+      fd.append('notes', notes);
+      // append each denom as individual fields: count_10000, count_5000, ...
+      Object.keys(denom_counts).forEach(k => {
+        fd.append('count_' + k, String(denom_counts[k]));
+      });
+
+      const submitBtn = document.getElementById('submitBtn');
+      submitBtn.disabled = true;
+      submitBtn.textContent = '送信中...';
+
+      try {
+        const res = await fetch(WEB_APP_URL, {
+          method: 'POST',
+          mode: 'cors',
+          body: fd // DO NOT set Content-Type header manually
+        });
+        const data = await res.json();
+        if (data && data.status === 'ok') {
+          alert('送信が完了しました。');
+          // reset and reinit UI
+          document.getElementById('dailyCashForm').reset();
+          document.querySelectorAll('#cashGrid tbody tr').forEach(row=>{
+            const r0 = row.querySelector('input[type="radio"][value="0"]');
+            if (r0) r0.checked = true;
+            const inline = row.querySelector('.hidden-count');
+            if (inline) { inline.value=''; inline.style.display='none'; }
+          });
+          updateDisplays();
+        } else {
+          console.error('Apps Script error', data);
+          alert('送信に失敗しました: ' + (data && data.message ? data.message : '不明なエラー'));
+        }
+      } catch (err) {
+        console.error(err);
+        alert('送信時にエラーが発生しました。コンソールを確認してください。');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '送信 / Submit';
+      }
+    }
+
+    // attach submit handler
+    document.getElementById('submitBtn').addEventListener('click', submitToAppsScript);
+  </script>
+</body>
+</html>
