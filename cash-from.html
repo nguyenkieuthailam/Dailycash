@@ -80,7 +80,7 @@
     <form id="dailyCashForm" onsubmit="return false;">
       <div class="row" style="margin-top:8px;">
         <div class="col">
-          <label for="date">日付 (Date)</label>
+          <label for="date">日付｜Date</label>
           <input type="date" id="date" name="date" required />
         </div>
       </div>
@@ -190,7 +190,7 @@
       const u = document.getElementById('authUser').value || '';
       const p = document.getElementById('authPass').value || '';
       if (!u || !p) {
-        alert('パスワードを入力してください | Hãy nhập Password');
+        alert('パスワードを入力してください。\nHãy nhập Password.');
         return false;
       }
       const b = btoa(u + ':' + p);
@@ -411,18 +411,18 @@
 
     async function submitToAppsScript() {
       // basic validation
-      if (!document.getElementById('authPass').value) { alert('パスワードを入力してください | Hãy nhập Password'); return; }
+      if (!document.getElementById('authPass').value) { alert('パスワードを入力してください。\nHãy nhập Password.'); return; }
         setAuthFromInputs();
       const date = document.getElementById('date').value;
-      if (!date) { alert('日付を入力してください | Hãy nhập ngày tháng'); return; }
+      if (!date) { alert('日付を入力してください。\nHãy nhập ngày tháng.'); return; }
       const location = document.getElementById('location').value === 'other' ? document.getElementById('locationOther').value : document.getElementById('location').value;
-      if (!location) { alert('店舗を入力してください | Hãy chọn tên tiệm'); return; }
+      if (!location) { alert('店舗を入力してください。\nHãy chọn tên tiệm.'); return; }
       const cashier = document.getElementById('cashier').value === 'other' ? document.getElementById('cashierOther').value : document.getElementById('cashier').value;
-      if (!cashier) { alert('担当者を入力してください | Hãy chọn member'); return; }
-      if (!document.getElementById('breakdown').value) { alert('精算表金額を入力してください | Hãy nhập số tiền trên hóa đơn'); return; }
+      if (!cashier) { alert('担当者を入力してください\nHãy chọn member.'); return; }
+      if (!document.getElementById('breakdown').value) { alert('精算表金額を入力してください。\nHãy nhập số tiền trên hóa đơn.'); return; }
 
       const auth = getAuth();
-      if (!auth) { alert('送信にはログインが必要です | Cần Login trước khi gửi dữ liệu'); return; }
+      if (!auth) { alert('送信にはログインが必要です。\nCần Login trước khi gửi dữ liệu.'); return; }
 
       const {denom_counts, grid_total} = collectDenomCounts();
       const change = Number(document.getElementById('change').value || 0);
@@ -466,13 +466,13 @@
         if (res.status === 401) {
           // authentication failed at proxy - clear stored auth
           clearAuth();
-          alert('パスワードが不正、認証に失敗しました | Sai Password, Login không thành công');
+          alert('パスワードが不正、認証に失敗しました。\nSai Password, Login không thành công.');
           return;
         }
 
         const data = await res.json();
         if (data && data.status === 'ok') {
-          alert('送信が完了しました | Đã gửi dữ liệu thành công');
+          alert('送信が完了しました。\nĐã gửi dữ liệu thành công!');
           document.getElementById('dailyCashForm').reset();
           document.querySelectorAll('#cashGrid tbody tr').forEach(row=>{
             const r0 = row.querySelector('input[type="radio"][value="0"]');
@@ -488,7 +488,7 @@
       } catch (err) {
         clearAuth();
         console.error(err);
-        alert('送信時にエラーが発生しました。コンソールを確認してください。');
+        alert('送信時にエラーが発生しました。管理者へ連絡してください。\nPhát sinh lỗi, xin hãy liên hệ với quản lý.');
       } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = '送信 / Submit';
