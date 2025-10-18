@@ -5,38 +5,42 @@
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>日次売上金集金フォーム（Apps Script送信）</title>
   <style>
-    :root{--colWidth:64px; --valueCol:120px}
-    body { font-family: Arial, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif; background:#f7f9fc; padding:18px; color:#111; }
-    .container { max-width:1200px; margin:0 auto; background:#fff; padding:20px; border-radius:10px; box-shadow:0 6px 18px rgba(15,23,42,0.06); }
+    :root{--colWidth:64px; --valueCol:80px}
+    body { font-family: Arial, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif; background:#f7f9fc; padding:4px; color:#111; }
+    .container { max-width:1200px; margin:0 auto; background:#fff; padding:8px; border-radius:10px; box-shadow:0 6px 18px rgba(15,23,42,0.06); }
     h1 { margin:0 0 6px; font-size:1.18rem; }
     .subtitle { color:#546e7a; margin-bottom:12px; }
-    label { display:block; margin:12px 0 6px; font-weight:700; }
+    label { display:block; margin:12px 0 6px; font-weight:700; font-size:0.9rem;}
     input[type="text"], input[type="number"], input[type="date"], select, textarea {
-      width:100%; padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; box-sizing:border-box; font-size:0.95rem;
+      width:100%; padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; box-sizing:border-box; font-size:0.8rem;
     }
     .row { display:flex; gap:12px; flex-wrap:wrap; }
     .col { flex:1; min-width:180px; }
     .actions { margin-top:18px; text-align:right; }
     button { background:#0b69d6; color:#fff; border:none; padding:10px 18px; border-radius:8px; cursor:pointer; font-size:0.95rem; }
-    .note { color:#666; font-size:0.9rem; margin-top:8px; }
+    .note { color:#666; font-size:0.8rem; margin-top:8px; }
 
     /* login box */
     #loginBox { display:flex; gap:8px; align-items:center; margin-bottom:12px; }
-    #loginBox input { width:auto; display:inline-block; padding:6px 8px; font-size:0.9rem; }
+    #loginBox input { width:auto; display:inline-block; padding:6px 8px; font-size:0.8rem; }
     #loginBox button { padding:6px 10px; font-size:0.9rem; }
 
     /* grid */
     .grid-wrapper { width:100%; overflow-x:auto; border:1px solid #e6eef8; border-radius:8px; background:#fff; margin-top:10px; }
     table.grid { border-collapse:collapse; table-layout:fixed; min-width:100%; }
-    .grid th, .grid td { border-right:1px solid #eef6ff; border-bottom:1px solid #eef6ff; padding:8px 6px; text-align:center; font-size:0.9rem; white-space:nowrap; }
+    .grid th, .grid td { border-right:1px solid #eef6ff; border-bottom:1px solid #eef6ff; padding:8px 6px; text-align:center; font-size:0.8rem; white-space:nowrap; }
     .grid th { background:#f0f6ff; color:#0b69d6; font-weight:700; position:sticky; top:0; z-index:5; }
     .grid th:first-child, .grid td:first-child { position:sticky; left:0; z-index:7; background:#fff; text-align:left; padding-left:12px; min-width:var(--valueCol); }
     .count-cell { width:var(--colWidth); max-width:var(--colWidth); padding:6px; }
-    .inline-input { width:72px; padding:6px; border-radius:6px; border:1px solid #cbd6e6; font-size:0.9rem; }
+    .inline-input { width:72px; padding:6px; border-radius:6px; border:1px solid #cbd6e6; font-size:0.8rem; }
+    .inline-input::placeholder { font-size:0.8rem; }
+    .note-input { width:100%; padding:6px; border-radius:6px; border:1px solid #cbd6e6; font-size:0.8rem; }
+    .note-input::placeholder { font-size:0.8rem; }
+    .cash-box { margin-top:12px; font-weight:700; color:#ff3300; }
     .total-box { margin-top:12px; font-weight:700; color:#0b69d6; }
-    .help { color:#555; font-size:0.92rem; margin-top:6px; }
+    .help { color:#555; font-size:0.80rem; margin-top:6px; }
     @media (max-width:700px){
-      :root{--valueCol:100px; --colWidth:52px}
+      :root{--valueCol:40px; --colWidth:48px}
       .container { padding:12px; }
     }
 
@@ -49,105 +53,52 @@
     #loginBox .field {
       margin-top: 8px;
     }
-    #loginBox .field label {
-      display:block;
-      margin-bottom:6px;
-      font-weight:700;
-      font-size:0.95rem;
-    }
     #loginBox .field input {
       /* reuse existing global input style (width:100% etc) */
       width:100%;
-      padding:8px 10px;
+      padding:4px 4px;
       border-radius:6px;
       border:1px solid #d1d5db;
       box-sizing:border-box;
-      font-size:0.95rem;
-    }
-    #loginBox .pw-row {
-      display:flex;
-      gap:8px;
-      align-items:center;
-    }
-    #loginBox .pw-row input[type="password"],
-    #loginBox .pw-row input[type="text"] {
-      flex:1;
-    }
-    #loginBox .pw-toggle {
-      background:transparent;
-      border:1px solid #d1d5db;
-      border-radius:6px;
-      padding:8px 10px;
-      cursor:pointer;
       font-size:0.95rem;
     }
     #loginBox .actions {
       display:flex;
       gap:8px;
       margin-top:10px;
-      justify-content:flex-end;
+      justify-content:flex-start;
     }
-    #loginBox .btn {
-      padding:8px 12px;
-      border-radius:6px;
-      border:none;
-      background:#0b69d6;
-      color:#fff;
-      cursor:pointer;
+    #loginBox .pass {
+      width:40%;
     }
-    #loginBox .btn.secondary {
-      background:#eef5ff;
-      color:#0b69d6;
-      border:1px solid #dbeeff;
-    }
-    /*#loginStatus {
-      margin-top:8px;
-      color:#666;
-      font-size:0.95rem;
-    }*/
   </style>
 </head>
 <body>
   <div class="container">
     <h1>売上集金｜Tổng kết sổ</h1>
 
-    <!-- LOGIN UI (vertical, same style as other fields) 
-    <div id="loginBox" aria-live="polite">
-      <div class="field">
-        <label id="authUserLabel" for="authUser">ユーザー名</label>
-        <input id="authUser" type="text" pattern="^[0-9A-Za-z]+$" placeholder="ユーザー名" autocomplete="username" value="banhmi" />
-      </div>
-
-      <div class="field">
-        <label id="authPassLabel" for="authPass">パスワード</label>
-        <div class="pw-row">
-          <input id="authPass" type="password" placeholder="パスワード" autocomplete="current-password" />
-          <button type="button" id="pwToggle" class="pw-toggle" aria-pressed="false" title="パスワード表示切替">👁</button>
+    <form id="dailyCashForm" onsubmit="return false;">
+      <div class="row" style="margin-top:8px;">
+        <div class="col">
+          <label for="date">日付 (Date)</label>
+          <input type="date" id="date" name="date" required />
         </div>
       </div>
 
-      <div class="actions">
-        <div id="loginStatus" class="help">Please login!</div>
-        <button id="authBtn" class="btn" type="button">ログイン</button>
-        <button id="logoutBtn" class="btn secondary" type="button" style="display:none">ログアウト</button>
+      <div class="row" style="margin-top:4px;">
+        <div class="col">
+          <label for="location">店舗｜Tên Tiệm</label>
+          <select id="location" name="location" required>
+            <option value=""></option>
+            <option value="Tsujido">辻堂店｜Tsujido</option>
+            <option value="Tsutsumi">堤店｜Tsutsumi</option>
+            <!-- <option value="other">その他</option> -->
+          </select>
+          <input type="text" id="locationOther" placeholder="店舗名を入力" style="margin-top:8px; display:none;" />
+        </div>
       </div>
-    </div>
-    -->
 
-    <form id="dailyCashForm" onsubmit="return false;">
-      <label for="date">日付 (Date)</label>
-      <input type="date" id="date" name="date" required />
-
-      <label for="location">店舗｜Tên Tiệm</label>
-      <select id="location" name="location" required>
-        <option value=""></option>
-        <option value="Tsujido">辻堂店｜Tsujido</option>
-        <option value="Tsutsumi">堤店｜Tsutsumi</option>
-        <!-- <option value="other">その他</option> -->
-      </select>
-      <input type="text" id="locationOther" placeholder="店舗名を入力" style="margin-top:8px; display:none;" />
-
-      <div class="row" style="margin-top:8px;">
+      <div class="row" style="margin-top:4px;">
         <div class="col">
           <label for="cashier">担当者｜Member</label>
           <select id="cashier" name="cashier" required>
@@ -166,7 +117,7 @@
       </div>
 
       <label style="margin-top:12px;">① レジ現金｜Tiền Mặt </label>
-      <div class="help">額と数を選択｜Chọn số lượng và tiền</div>
+      <div class="help">額と数を選択｜Chọn tiền và số lượng</div>
 
       <div class="grid-wrapper" id="gridWrapper">
         <table class="grid" id="cashGrid">
@@ -176,57 +127,51 @@
       </div>
 
       <div style="margin-top:12px; display:flex; gap:12px; flex-wrap:wrap;">
-        <div style="flex:1; min-width:160px;">
-          <label for="paypay">② Paypay売上</label>
+        <div style="flex:1; min-width:180px;">
+          <label for="paypay">② Paypay</label>
           <input type="number" id="paypay" name="paypay" min="0" step="1" inputmode="numeric" pattern="\d*"/>
         </div>
-        <div style="flex:1; min-width:160px;">
-          <label for="uber">③ Uber売上</label>
+        <div style="flex:1; min-width:180px;">
+          <label for="uber">③ Uber</label>
           <input type="number" id="uber" name="uber" min="0" step="1" inputmode="numeric" pattern="\d*" />
         </div>
         <div style="flex:1; min-width:160px;">
-          <label for="demaekan">④ Demaekan売上</label>
+          <label for="demaekan">④ Demaekan</label>
           <input type="number" id="demaekan" name="demaekan" min="0" step="1" inputmode="numeric" pattern="\d*" />
         </div>
-      </div>
-
-      <div style="margin-top:10px;">
-        <label>⑤ その他｜Tiền Khác</label>
-        <div style="display:flex; gap:8px; align-items:center;">
+        <div style="flex:1; min-width:180px;">
+          <label>⑤ その他｜Tiền Khác</label>
           <input type="number" id="otherAmount" name="otherAmount" min="0" step="1" class="inline-input" placeholder="あれば加算｜Nếu có cộng vào" />
         </div>
-      </div>
+        <div style="flex:1; min-width:180px;">
+          <label for="change">⑥ 釣り銭｜Tiền Thoái（-38,500）</label>
+          <input type="number" id="change" name="change" value="-38500" step="1" class="inline-input" disabled />
+        </div>
+        <div style="flex:1; min-width:180px;">
+          <label for="breakdown" style="margin-top:10px;">精算表｜Tiền Hóa Đơn</label>
+          <input type="number" id="breakdown" name="breakdown" min="0" step="1" class="inline-input" placeholder="精算表額入力｜Nhập số tiền hóa đơn" required />
+        </div>
+        <div style="flex:1; min-width:180px;">
+          <label for="notes" style="margin-top:10px;">備考｜Ghi chú</label>
+          <textarea id="notes" name="notes" rows="3" class="note-input" placeholder="備考を入力 | Nhập ghi chú"></textarea>
+        </div>
 
-      <div style="margin-top:10px;">
-        <label for="change">⑥ 釣り銭｜Tiền Thoái（-38,500）</label>
-        <input type="number" id="change" name="change" value="-38500" step="1" class="inline-input" />
-      </div>
+        <div style="flex:1; min-width:180px;">
+          <div class="cash-box" id="subtotalDisplay">Cash + Paypay：¥0</div>
+          <div class="total-box" id="totalDisplay" style="margin-top:6px;">①+②+③+④+⑤ - ⑥：¥0</div>
+        </div>
 
-      <label for="breakdown" style="margin-top:12px;">精算表｜Số Hóa Đơn</label>
-      <input type="number" id="breakdown" name="breakdown" min="0" step="1" class="inline-input" placeholder="精算表金額入力｜Nhập số hóa đơn" />
-
-      <label for="notes" style="margin-top:10px;">備考｜Ghi chú</label>
-      <textarea id="notes" name="notes" rows="3" placeholder="備考を入力 | Nhập ghi chú"></textarea>
-
-      <div class="total-box" id="subtotalDisplay">Cash + Paypay：¥0</div>
-      <div class="total-box" id="totalDisplay" style="margin-top:6px;">①+②+③+④+⑤ - ⑥：¥0</div>
-
-      <!-- <div class="field">
-        <input id="authPasss" type="password" placeholder="パスワード" autocomplete="current-password" />
-        <button id="submitBtn" type="button">送信 / Submit</button>
-      </div> -->
-
-      <div id="loginBox" aria-live="polite">
-        <div class="actions">
-          <input type="hidden" id="authUser" value="banhmi"/>
-          <input id="authPass" type="password" placeholder="password" autocomplete="current-password"/>
-          <button id="submitBtn" type="button">送信 / Submit</button>
+        <div id="loginBox" aria-live="polite">
+          <div class="actions">
+            <input type="hidden" id="authUser" value="banhmi"/>
+            <input id="authPass" type="password" placeholder="password" autocomplete="current-password" class="pass"/>
+            <button id="submitBtn" type="button" style="flex:1; width:60%; min-width:50px;">送信 / Submit</button>
+          </div>
         </div>
       </div>
-
     </form>
 
-    <p class="note" style="margin-top:12px;">※パスワードセットが必要</br>Cần nhập password</p>
+    <p class="note" style="margin-top:8px;">※パスワードセットが必要</br>Cần nhập password</p>
   </div>
 
   <script>
@@ -266,69 +211,25 @@
     function updateLoginStatus() {
       document.getElementById('authPass').value = "";
       document.getElementById('authPass').disabled = false;
-      // const statusEl = document.getElementById('loginStatus');
-      // const logoutBtn = document.getElementById('logoutBtn');
       // const auth = getAuth();
       // if (auth) {
-      //   // statusEl.textContent = '認証成功！ Thành công';
-      //   // logoutBtn.style.display = 'inline-block';
       //   // document.getElementById('authUser').style.display = 'none';
       //   // document.getElementById('authPass').style.display = 'none';
       //   document.getElementById('authPass').disabled = false;
-      //   // document.getElementById('authBtn').style.display = 'none';
-      //   // document.getElementById('authUserLabel').style.display = 'none';
-      //   // document.getElementById('authPassLabel').style.display = 'none';
-      //   // document.getElementById('pwToggle').style.display = 'none';
       // } else {
-      //   // statusEl.textContent = 'Please login!';
-      //   // logoutBtn.style.display = 'none';
       //   // document.getElementById('authUser').style.display = 'inline-block';
       //   // document.getElementById('authPass').style.display = 'inline-block';
       //   document.getElementById('authPass').disabled = false;
-      //   // document.getElementById('authBtn').style.display = 'inline-block';
-      //   // document.getElementById('authUserLabel').style.display = 'inline-block';
-      //   // document.getElementById('authPassLabel').style.display = 'inline-block';
-      //   // document.getElementById('pwToggle').style.display = 'inline-block';
       // }
     }
-
-    // password toggle — 既存のログインロジックと併用できます
-    // document.addEventListener('DOMContentLoaded', () => {
-    //   const pwToggle = document.getElementById('pwToggle');
-    //   const passInput = document.getElementById('authPass');
-    //   if (pwToggle && passInput) {
-    //     pwToggle.addEventListener('click', () => {
-    //       const isPwd = passInput.getAttribute('type') === 'password';
-    //       passInput.setAttribute('type', isPwd ? 'text' : 'password');
-    //       pwToggle.setAttribute('aria-pressed', String(isPwd));
-    //       pwToggle.textContent = isPwd ? '🙈' : '👁';
-    //     });
-    //   }
-
-    //   // 既存の updateLoginStatus() を呼んで初期状態反映（もし定義済みなら）
-    //   if (typeof updateLoginStatus === 'function') updateLoginStatus();
-    // });
-
-    // document.getElementById('authBtn').addEventListener('click', () => {
-    //   if (setAuthFromInputs()) {
-    //     alert('ログイン成功しました。 | Login thành công');
-    //   }
-    // });
-    // document.getElementById('logoutBtn').addEventListener('click', () => {
-    //   clearAuth();
-    //   alert('ログアウトしました| Logout thành công');
-    // });
-
-    // initialize status on load
-    // updateLoginStatus();
 
     /******************************
      * グリッド生成（0..60 +「60以上」）
      ******************************/
     const DENOMS = [10000,5000,1000,500,100,50,10];
     const MAX_COL = 60;
-    const colWidth = 64;
-    const valueCol = 120;
+    const colWidth = 40;
+    const valueCol = 60;
 
     (function buildGrid(){
       const headRow = document.querySelector('#gridHead tr');
@@ -518,6 +419,7 @@
       if (!location) { alert('店舗を入力してください | Hãy chọn tên tiệm'); return; }
       const cashier = document.getElementById('cashier').value === 'other' ? document.getElementById('cashierOther').value : document.getElementById('cashier').value;
       if (!cashier) { alert('担当者を入力してください | Hãy chọn member'); return; }
+      if (!document.getElementById('breakdown').value) { alert('精算表金額を入力してください | Hãy nhập số tiền trên hóa đơn'); return; }
 
       const auth = getAuth();
       if (!auth) { alert('送信にはログインが必要です | Cần Login trước khi gửi dữ liệu'); return; }
@@ -570,7 +472,7 @@
 
         const data = await res.json();
         if (data && data.status === 'ok') {
-          alert('送信が完了しました | Gửi dữ liệu thành công');
+          alert('送信が完了しました | Đã gửi dữ liệu thành công');
           document.getElementById('dailyCashForm').reset();
           document.querySelectorAll('#cashGrid tbody tr').forEach(row=>{
             const r0 = row.querySelector('input[type="radio"][value="0"]');
