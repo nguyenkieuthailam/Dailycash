@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>日次売上金集金フォーム（Apps Script送信）</title>
+  <title>日次売上金集金フォーム</title>
   <style>
     :root{--colWidth:64px; --valueCol:80px}
     body { font-family: Arial, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif; background:#f7f9fc; padding:4px; color:#111; }
@@ -39,38 +39,31 @@
     .cash-box { margin-top:12px; font-weight:700; color:#ff3300; }
     .total-box { margin-top:12px; font-weight:700; color:#0b69d6; }
     .help { color:#555; font-size:0.80rem; margin-top:6px; }
+
+    /* ①−⑥ 表示用 */
+    .delta-box {
+      margin-top:6px;
+      font-weight:700;
+      color:#0f766e;              /* 落ち着いた緑 */
+      background:#ecfeff;         /* 淡い背景 */
+      /*border:1px solid #99f6e4;   /* 輪郭 */*/
+      border-radius:8px;
+      padding:8px 10px;
+    }
+
     @media (max-width:700px){
       :root{--valueCol:40px; --colWidth:48px}
       .container { padding:12px; }
     }
 
-    /* Login block — vertical layout, same style as other form fields */
-    #loginBox {
-      display: block;
-      margin-bottom: 12px;
-      padding: 8px 0;
-    }
-    #loginBox .field {
-      margin-top: 8px;
-    }
+    /* Login block — vertical layout */
+    #loginBox { display: block; margin-bottom: 12px; padding: 8px 0; }
+    #loginBox .field { margin-top: 8px; }
     #loginBox .field input {
-      /* reuse existing global input style (width:100% etc) */
-      width:100%;
-      padding:4px 4px;
-      border-radius:6px;
-      border:1px solid #d1d5db;
-      box-sizing:border-box;
-      font-size:0.95rem;
+      width:100%; padding:4px 4px; border-radius:6px; border:1px solid #d1d5db; box-sizing:border-box; font-size:0.95rem;
     }
-    #loginBox .actions {
-      display:flex;
-      gap:8px;
-      margin-top:10px;
-      justify-content:flex-start;
-    }
-    #loginBox .pass {
-      width:40%;
-    }
+    #loginBox .actions { display:flex; gap:8px; margin-top:10px; justify-content:flex-start; }
+    #loginBox .pass { width:40%; }
   </style>
 </head>
 <body>
@@ -110,12 +103,12 @@
             <option value="Thi">Thi</option>
             <option value="Nguyen">Nguyen</option>
             <option value="Lam">Lam</option>
-            <!-- <option value="other">その他</option> -->
           </select>
           <input type="text" id="cashierOther" placeholder="担当者名を入力" style="margin-top:8px; display:none;" />
         </div>
       </div>
 
+      <!-- ① レジ現金 -->
       <label style="margin-top:12px;">① レジ現金｜Tiền Mặt </label>
       <div class="help">額と数を選択｜Chọn tiền và số lượng</div>
 
@@ -124,6 +117,11 @@
           <thead id="gridHead"><tr><th style="min-width:var(--valueCol);">金額</th></tr></thead>
           <tbody id="gridBody"></tbody>
         </table>
+      </div>
+
+      <!-- ★ 追加：①−⑥ の計算結果を表示する行 -->
+      <div id="deltaCashChange" class="delta-box" aria-live="polite">
+        現金｜Cash（① − ⑥）： <strong>¥0</strong>
       </div>
 
       <div style="margin-top:12px; display:flex; gap:12px; flex-wrap:wrap;">
@@ -185,42 +183,19 @@
      * ログイン / 認証補助関数
      ******************************/
     const AUTH_KEY = 'proxyAuth'; // sessionStorage key
-
     function setAuthFromInputs() {
       const u = document.getElementById('authUser').value || '';
       const p = document.getElementById('authPass').value || '';
-      if (!u || !p) {
-        alert('パスワードを入力してください。\nHãy nhập Password.');
-        return false;
-      }
+      if (!u || !p) { alert('パスワードを入力してください。\\nHãy nhập Password.'); return false; }
       const b = btoa(u + ':' + p);
       sessionStorage.setItem(AUTH_KEY, b);
-      // updateLoginStatus();
       return true;
     }
-
-    function clearAuth() {
-      sessionStorage.removeItem(AUTH_KEY);
-      updateLoginStatus();
-    }
-
-    function getAuth() {
-      return sessionStorage.getItem(AUTH_KEY) || null;
-    }
-
+    function clearAuth() { sessionStorage.removeItem(AUTH_KEY); updateLoginStatus(); }
+    function getAuth() { return sessionStorage.getItem(AUTH_KEY) || null; }
     function updateLoginStatus() {
       document.getElementById('authPass').value = "";
       document.getElementById('authPass').disabled = false;
-      // const auth = getAuth();
-      // if (auth) {
-      //   // document.getElementById('authUser').style.display = 'none';
-      //   // document.getElementById('authPass').style.display = 'none';
-      //   document.getElementById('authPass').disabled = false;
-      // } else {
-      //   // document.getElementById('authUser').style.display = 'inline-block';
-      //   // document.getElementById('authPass').style.display = 'inline-block';
-      //   document.getElementById('authPass').disabled = false;
-      // }
     }
 
     /******************************
@@ -289,7 +264,7 @@
     })();
 
     /******************************
-     * ユーザー入力制御（location/cashier その他など）
+     * 入力制約＆UIトグル
      ******************************/
     (function uiToggles(){
       const locationSelect = document.getElementById('location');
@@ -304,26 +279,18 @@
         if (cashierSelect.value === 'other') { cashierOther.style.display = 'block'; cashierOther.required = true; }
         else { cashierOther.style.display = 'none'; cashierOther.required = false; }
       });
+      function enforceIntegerInput(el) {
+        el.addEventListener('input', () => { el.value = el.value.replace(/[^\\d]/g,''); });
+        el.addEventListener('blur', () => { if (el.value==='') el.value='0'; });
+      }
+      ['paypay','uber','demaekan'].forEach(id=>{
+        const el = document.getElementById(id);
+        if (el) enforceIntegerInput(el);
+      });
     })();
 
     /******************************
-     * 入力制約（Paypay/Uber/Demaekan を数値のみに）
-     ******************************/
-    function enforceIntegerInput(el) {
-      el.addEventListener('input', () => {
-        let v = el.value;
-        v = v.replace(/[^\d]/g,'');
-        el.value = v;
-      });
-      el.addEventListener('blur', () => { if (el.value==='') el.value='0'; });
-    }
-    ['paypay','uber','demaekan'].forEach(id=>{
-      const el = document.getElementById(id);
-      if (el) enforceIntegerInput(el);
-    });
-
-    /******************************
-     * 計算ロジック（集計・表示）
+     * 計算ロジック
      ******************************/
     function parseCountFromRow(row) {
       const radios = Array.from(row.querySelectorAll('input[type="radio"]'));
@@ -354,11 +321,17 @@
     function updateDisplays() {
       const {gridTotal} = computeGridTotalAndCounts();
       const other = parseInt(document.getElementById('otherAmount').value || '0',10) || 0;
-      const change = parseInt(document.getElementById('change').value || '0',10) || 0;
+      const change = parseInt(document.getElementById('change').value || '0',10) || 0; // -38500（固定）
       const paypay = parseInt(document.getElementById('paypay').value || '0',10) || 0;
       const uber = parseInt(document.getElementById('uber').value || '0',10) || 0;
       const demaekan = parseInt(document.getElementById('demaekan').value || '0',10) || 0;
 
+      // ★ ①−⑥（= gridTotal - change）: change は負数（-38500）なので「① + 38,500」になる
+      const cashMinusChange = gridTotal + change;
+      document.getElementById('deltaCashChange').innerHTML =
+        '現金｜Cash（① − ⑥）： <strong>¥' + cashMinusChange.toLocaleString() + '</strong>';
+
+      // 既存の集計（元ファイルの仕様を維持）
       const cashTotal = gridTotal + change + other;
       const subtotal = cashTotal + paypay;
       const overall = subtotal + uber + demaekan;
@@ -368,6 +341,7 @@
     }
 
     (function attachUpdateListeners(){
+      // グリッドのラジオ＆「60以上」入力
       document.querySelectorAll('#cashGrid tbody tr').forEach(row=>{
         row.querySelectorAll('input[type="radio"]').forEach(radio=>{
           radio.addEventListener('change', (e)=>{
@@ -381,20 +355,24 @@
         if (inline) inline.addEventListener('input', updateDisplays);
       });
 
+      // その他の入力
       ['paypay','uber','demaekan','otherAmount','change'].forEach(id=>{
         const el = document.getElementById(id);
         if (el) el.addEventListener('input', updateDisplays);
       });
 
+      // 初期値：各行 0 を選択
       document.querySelectorAll('#cashGrid tbody tr').forEach(row=>{
         const r0 = row.querySelector('input[type="radio"][value="0"]');
         if (r0) r0.checked = true;
       });
+
+      // 初回描画
       updateDisplays();
     })();
 
     /******************************
-     * 収集ロジックと送信（Authorization ヘッダを付与）
+     * 送信（Authorization ヘッダを付与）
      ******************************/
     function collectDenomCounts() {
       const rows = Array.from(document.querySelectorAll('#cashGrid tbody tr'));
@@ -410,19 +388,19 @@
     }
 
     async function submitToAppsScript() {
-      // basic validation
-      if (!document.getElementById('authPass').value) { alert('パスワードを入力してください。\nHãy nhập Password.'); return; }
-        setAuthFromInputs();
+      if (!document.getElementById('authPass').value) { alert('パスワードを入力してください。\\nHãy nhập Password.'); return; }
+      setAuthFromInputs();
+
       const date = document.getElementById('date').value;
-      if (!date) { alert('日付を入力してください。\nHãy nhập ngày tháng.'); return; }
+      if (!date) { alert('日付を入力してください。\\nHãy nhập ngày tháng.'); return; }
       const location = document.getElementById('location').value === 'other' ? document.getElementById('locationOther').value : document.getElementById('location').value;
-      if (!location) { alert('店舗を入力してください。\nHãy chọn tên tiệm.'); return; }
+      if (!location) { alert('店舗を入力してください。\\nHãy chọn tên tiệm.'); return; }
       const cashier = document.getElementById('cashier').value === 'other' ? document.getElementById('cashierOther').value : document.getElementById('cashier').value;
-      if (!cashier) { alert('担当者を入力してください\nHãy chọn member.'); return; }
-      if (!document.getElementById('breakdown').value) { alert('精算表金額を入力してください。\nHãy nhập số tiền trên hóa đơn.'); return; }
+      if (!cashier) { alert('担当者を入力してください\\nHãy chọn member.'); return; }
+      if (!document.getElementById('breakdown').value) { alert('精算表金額を入力してください。\\nHãy nhập số tiền trên hóa đơn.'); return; }
 
       const auth = getAuth();
-      if (!auth) { alert('送信にはログインが必要です。\nCần Login trước khi gửi dữ liệu.'); return; }
+      if (!auth) { alert('送信にはログインが必要です。\\nCần Login trước khi gửi dữ liệu.'); return; }
 
       const {denom_counts, grid_total} = collectDenomCounts();
       const change = Number(document.getElementById('change').value || 0);
@@ -434,7 +412,6 @@
       const notes = document.getElementById('notes').value || '';
 
       const fd = new FormData();
-      // only append token if non-empty (we prefer server INJECT_TOKEN)
       if (SECRET_TOKEN) fd.append('token', SECRET_TOKEN);
       fd.append('date', date);
       fd.append('location', location);
@@ -457,22 +434,19 @@
         const res = await fetch(WEB_APP_URL, {
           method: 'POST',
           mode: 'cors',
-          headers: {
-            'Authorization': 'Basic ' + auth
-          },
+          headers: { 'Authorization': 'Basic ' + auth },
           body: fd
         });
 
         if (res.status === 401) {
-          // authentication failed at proxy - clear stored auth
           clearAuth();
-          alert('パスワードが不正、認証に失敗しました。\nSai Password, Login không thành công.');
+          alert('パスワードが不正、認証に失敗しました。\\nSai Password, Login không thành công.');
           return;
         }
 
         const data = await res.json();
         if (data && data.status === 'ok') {
-          alert('送信が完了しました。\nĐã gửi dữ liệu thành công!');
+          alert('送信が完了しました。\\nĐã gửi dữ liệu thành công!');
           document.getElementById('dailyCashForm').reset();
           document.querySelectorAll('#cashGrid tbody tr').forEach(row=>{
             const r0 = row.querySelector('input[type="radio"][value="0"]');
@@ -488,14 +462,13 @@
       } catch (err) {
         clearAuth();
         console.error(err);
-        alert('送信時にエラーが発生しました。管理者へ連絡してください。\nPhát sinh lỗi, xin hãy liên hệ với quản lý.');
+        alert('送信時にエラーが発生しました。管理者へ連絡してください。\\nPhát sinh lỗi, xin hãy liên hệ với quản lý.');
       } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = '送信 / Submit';
       }
     }
 
-    // attach submit handler
     document.getElementById('submitBtn').addEventListener('click', submitToAppsScript);
   </script>
 </body>
