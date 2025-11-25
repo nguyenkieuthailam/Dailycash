@@ -482,28 +482,47 @@
           body: fd
         });
 
-        if (res.status === 401) {
-          // authentication failed at proxy - clear stored auth
-          clearAuth();
-          alert('パスワードが不正、認証に失敗しました。\nSai Password, Login không thành công.');
+
+        const res = await fetch(WEB_APP_URL, {
+          method: 'POST',
+          body: fd,
+        }); // modeはデフォルトでOK（CORSエラーが出る場合は要調整）
+
+        if (!res.ok) {
+          alert('送信に失敗しました: ' + res.status);
           return;
         }
 
         const data = await res.json();
         if (data && data.status === 'ok') {
-          alert('送信が完了しました。\nĐã gửi dữ liệu thành công!');
-          document.getElementById('dailyCashForm').reset();
-          document.querySelectorAll('#cashGrid tbody tr').forEach(row=>{
-            const r0 = row.querySelector('input[type="radio"][value="0"]');
-            if (r0) r0.checked = true;
-            const inline = row.querySelector('.hidden-count');
-            if (inline) { inline.value=''; inline.style.display='none'; }
-          });
-          updateDisplays();
+          alert('送信が完了しました。');
+          // フォームリセット＆グリッド初期化…
         } else {
-          console.error('Apps Script error', data);
           alert('送信に失敗しました: ' + (data && data.message ? data.message : '不明なエラー'));
         }
+
+        // if (res.status === 401) {
+        //   // authentication failed at proxy - clear stored auth
+        //   clearAuth();
+        //   alert('パスワードが不正、認証に失敗しました。\nSai Password, Login không thành công.');
+        //   return;
+        // }
+
+        // const data = await res.json();
+        // if (data && data.status === 'ok') {
+        //   alert('送信が完了しました。\nĐã gửi dữ liệu thành công!');
+        //   document.getElementById('dailyCashForm').reset();
+        //   document.querySelectorAll('#cashGrid tbody tr').forEach(row=>{
+        //     const r0 = row.querySelector('input[type="radio"][value="0"]');
+        //     if (r0) r0.checked = true;
+        //     const inline = row.querySelector('.hidden-count');
+        //     if (inline) { inline.value=''; inline.style.display='none'; }
+        //   });
+        //   updateDisplays();
+        // } else {
+        //   console.error('Apps Script error', data);
+        //   alert('送信に失敗しました: ' + (data && data.message ? data.message : '不明なエラー'));
+        // }
       } catch (err) {
         clearAuth();
         console.error(err);
