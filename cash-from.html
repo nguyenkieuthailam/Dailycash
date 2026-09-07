@@ -82,6 +82,31 @@
     #loginBox .pass {
       width:40%;
     }
+
+    /* 送信結果ダイアログ */
+    .modal-overlay {
+      position:fixed; inset:0; background:rgba(15,23,42,0.55);
+      display:none; align-items:center; justify-content:center;
+      z-index:1000; padding:20px;
+    }
+    .modal-overlay.show { display:flex; }
+    .modal-box {
+      background:#fff; border-radius:16px; padding:28px 24px;
+      max-width:420px; width:100%; text-align:center;
+      box-shadow:0 12px 40px rgba(15,23,42,0.25);
+    }
+    .modal-icon { font-size:2.8rem; line-height:1; margin-bottom:10px; }
+    .modal-icon.success { color:#16a34a; }
+    .modal-icon.error { color:#dc2626; }
+    .modal-message {
+      font-size:1.0rem; line-height:1.5; font-weight:700;
+      white-space:pre-line; color:#111; margin-bottom:22px;
+    }
+    .modal-ok-btn {
+      background:#0b69d6; color:#fff; border:none; padding:12px 36px;
+      border-radius:10px; font-size:1.1rem; font-weight:700; cursor:pointer;
+    }
+    .modal-box.error .modal-ok-btn { background:#dc2626; }
   </style>
 </head>
 <body>
@@ -188,6 +213,14 @@
     </form>
 
     <p class="note" style="margin-top:8px;">※パスワードセットが必要</br>Cần nhập password</p>
+  </div>
+
+  <div id="resultModal" class="modal-overlay" aria-live="assertive">
+    <div id="resultBox" class="modal-box">
+      <div id="resultIcon" class="modal-icon"></div>
+      <div id="resultMessage" class="modal-message"></div>
+      <button id="resultOkBtn" class="modal-ok-btn" type="button">OK</button>
+    </div>
   </div>
 
   <script>
@@ -415,6 +448,32 @@
     })();
 
     /******************************
+     * 送信結果ダイアログ（alert の代替、文字を大きく表示）
+     ******************************/
+    function showResultDialog(message, type) {
+      const overlay = document.getElementById('resultModal');
+      const box = document.getElementById('resultBox');
+      const icon = document.getElementById('resultIcon');
+      const msg = document.getElementById('resultMessage');
+      icon.textContent = type === 'success' ? '✅' : '⚠️';
+      icon.className = 'modal-icon ' + type;
+      box.className = 'modal-box ' + type;
+      msg.textContent = message;
+      overlay.classList.add('show');
+      document.getElementById('resultOkBtn').focus();
+    }
+    function hideResultDialog() {
+      document.getElementById('resultModal').classList.remove('show');
+    }
+    document.getElementById('resultOkBtn').addEventListener('click', hideResultDialog);
+    document.getElementById('resultModal').addEventListener('click', (e) => {
+      if (e.target.id === 'resultModal') hideResultDialog();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') hideResultDialog();
+    });
+
+    /******************************
      * 収集ロジックと送信（Authorization ヘッダを付与）
      ******************************/
     function collectDenomCounts() {
@@ -483,13 +542,13 @@
         }); // modeはデフォルトでOK（CORSエラーが出る場合は要調整）
 
         if (!res.ok) {
-          alert('送信に失敗しました。（パスワードご確認ください！）\nGửi dữ liệu thất bại. (hãy kiểm tra password!)\n\n Error: ' + res.status);
+          showResultDialog('失敗しました。（パスワードご確認ください）\nThất bại. (hãy kiểm tra password)\n\nError: ' + res.status, 'error');
           return;
         }
 
         const data = await res.json();
         if (data && data.status === 'ok') {
-          alert('送信が完了しました！\nĐã gửi dữ liệu thành công!');
+          showResultDialog('送信が完了しました！\nĐã gửi dữ liệu thành công!', 'success');
           document.getElementById('dailyCashForm').reset();
           document.querySelectorAll('#cashGrid tbody tr').forEach(row=>{
             const r0 = row.querySelector('input[type="radio"][value="0"]');
@@ -500,12 +559,12 @@
           updateDisplays();
         } else {
           console.error('Apps Script error', data);
-          alert('送信に失敗しました。（パスワードご確認ください！）\nGửi dữ liệu thất bại. (hãy kiểm tra password!)\n\n Error: ' + (data && data.message ? data.message : '不明なエラー'));
+          showResultDialog('失敗しました。（パスワードご確認ください）\nThất bại. (hãy kiểm tra password)\n\nError: ' + (data && data.message ? data.message : '不明なエラー'), 'error');
         }
       } catch (err) {
         clearAuth();
         console.error(err);
-        alert('送信時にエラーが発生しました。管理者へ連絡してください。\nPhát sinh lỗi, xin hãy liên hệ với quản lý.');
+        showResultDialog('送信時にエラーが発生しました。管理者へ連絡してください。\nPhát sinh lỗi, xin hãy liên hệ với quản lý.', 'error');
       } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = '送信 / Submit';
