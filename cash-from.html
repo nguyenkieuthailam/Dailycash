@@ -185,8 +185,8 @@
           <input type="number" id="otherAmount" name="otherAmount" min="0" step="1" class="inline-input" placeholder="あれば加算｜Nếu có cộng vào" />
         </div>
         <div style="flex:1; min-width:180px;">
-          <label for="change">⑥ 釣り銭｜Tiền Thoái（-38,500）</label>
-          <input type="number" id="change" name="change" value="-38500" step="1" class="inline-input" disabled />
+          <label for="change">⑥ 釣り銭｜Tiền Thoái（-36,000）</label>
+          <input type="number" id="change" name="change" value="-36000" step="1" class="inline-input" disabled />
         </div>
         <div style="flex:1; min-width:180px;">
           <label for="breakdown" style="margin-top:10px;">精算表｜Tiền Hóa Đơn</label>
@@ -408,7 +408,7 @@
       const uber = parseInt(document.getElementById('uber').value || '0',10) || 0;
       const demaekan = parseInt(document.getElementById('demaekan').value || '0',10) || 0;
 
-      // ★ ①−⑥（= gridTotal - change）: change は負数（-38500）なので「① + 38,500」になる
+      // ★ ①−⑥（= gridTotal - change）: change は負数（-36000）なので「① + 36,000」になる
       const cashMinusChange = gridTotal + change;
       document.getElementById('deltaCashChange').innerHTML =
         '現金｜Cash（①−⑥）： <strong>¥' + cashMinusChange.toLocaleString() + '</strong>';
